@@ -1,0 +1,9 @@
+# dsh-session-cost-plus bundle patch: insert the cost-line row into the web profile.
+# The row is both a host entry (lib/index.js, no-op) and a browser-roster client
+# module (lib/client.js via the dsh.client manifest). The client face reads the
+# `tokenUsage` session projection, renders the estimated cost under the official
+# stats strip, and patches the official cache-hit display to two decimals without
+# ellipsis truncation.
+- insert:
+    - id: session-cost-plus
+      name: dsh-session-cost-plus

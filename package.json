@@ -1,9 +1,12 @@
 {
   "name": "dsh-session-cost-plus",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH web GUI plugin: real-time current-session cost line under the stats strip (official DeepSeek pricing), plus cache-hit percentage with 2 decimals and no stats-line truncation",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
@@ -17,6 +20,10 @@
   ],
   "license": "MIT",
   "author": "dsh-session-cost-plus",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ANOKO1122/dsh-session-cost-plus.git"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",
@@ -35,7 +42,6 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-ui-slots"
@@ -47,12 +53,11 @@
     "react": "^18.2.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.5",
+    "@deepseek-ai/dsh-client-locale": "^0.1.5-alpha.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.5-alpha.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.5-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.5-alpha.1",
+    "@deepseek-ai/dsh-host-webserver": "^0.1.5-alpha.1",
     "@deepseek-ai/cordis": "^4.0.1"
   }
 }

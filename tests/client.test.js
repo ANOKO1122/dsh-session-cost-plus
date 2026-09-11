@@ -15,8 +15,9 @@ async function loadClientInternals() {
     await import(`../lib/client.js?test=${Date.now()}`)
     assert.ok(definition)
     const exports = definition.factory((id) => {
-      if (id === 'react/jsx-runtime') return { jsx() {}, jsxs() {}, Fragment: Symbol('Fragment') }
+      if (id === 'react/jsx-runtime') return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }), Fragment: Symbol('Fragment') }
       if (id === 'react') return {}
+      if (id === '@deepseek-ai/dsh-client-ui-primitives') return { Button: 'DSH-Button' }
       throw new Error(`unexpected client dependency: ${id}`)
     })
     return exports.internals
@@ -24,6 +25,26 @@ async function loadClientInternals() {
     globalThis.window = previousWindow
   }
 }
+
+test('balance uses native DSH button, theme colors, wrapping and refresh action', async () => {
+  const { BalanceView } = await loadClientInternals()
+  let refreshed = 0
+  const view = BalanceView({
+    state: { isAvailable: true, updatedAt: Date.now(), balances: [{ currency: 'CNY', total_balance: '343.66', topped_up_balance: '343.66', granted_balance: '0.00' }] },
+    error: '', busy: false, onRefresh: () => refreshed++,
+  })
+  assert.equal(view.props.style.flexWrap, 'wrap')
+  assert.equal(view.props.style.color, 'var(--dsw-alias-label-tertiary)')
+  const button = view.props.children.find(node => node?.type === 'DSH-Button')
+  assert.equal(button.props.variant, 'ghost')
+  assert.equal(button.props.size, 'sm')
+  button.props.onClick()
+  assert.equal(refreshed, 1)
+  assert.ok(JSON.stringify(view).includes('¥343.66'))
+  const failed = BalanceView({ state: null, error: '网络失败', busy: true, onRefresh() {} })
+  assert.ok(JSON.stringify(failed).includes('官方余额暂不可用'))
+  assert.equal(failed.props.children.find(node => node?.type === 'DSH-Button').props.disabled, true)
+})
 
 test('frame scheduler coalesces repeated patches and cancels pending work', async () => {
   const internals = await loadClientInternals()

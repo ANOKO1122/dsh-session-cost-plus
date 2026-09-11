@@ -15,13 +15,22 @@ test('latest Flash prices, aliases, disjoint input and weekday boundaries', () =
   assert.equal(isPeakBeijing(at('2026-09-14T12:00:00')), false)
   assert.equal(isPeakBeijing(at('2026-09-14T18:00:00')), false)
 })
-test('Pro redirect uses the announced instant, unknown models are not silently Flash', () => {
+test('Pro redirect is preserved and unknown models default to Flash with an explicit assumption', () => {
   assert.equal(officialCost({ ...usage, model: 'deepseek-v4-pro', time: PRO_REDIRECT_AT - 1 }).total, 45.3)
   assert.equal(officialCost({ ...usage, model: 'deepseek-v4-pro', time: PRO_REDIRECT_AT }).total, 6.02)
   assert.equal(officialCost({ ...usage, model: 'gemini-pro', time: PRO_REDIRECT_AT }), null)
   const summary = internals.summarizeRecords([{ ...usage, model: 'unknown', time: PRO_REDIRECT_AT }])
-  assert.equal(summary.unpricedRecords, 1)
-  assert.equal(summary.total, 0)
+  assert.equal(summary.unpricedRecords, 0)
+  assert.equal(summary.assumedModelRecords, 1)
+  assert.equal(summary.total, 6.02)
+})
+test('missing and historical unknown models use V4.1 Flash, invalid times remain unpriced', () => {
+  for (const model of [undefined, '', 'unknown', 'vendor/custom-model']) {
+    const summary = internals.summarizeRecords([{ ...usage, model, time: at('2026-09-09T10:00:00') }])
+    assert.equal(summary.total, 12.04)
+    assert.equal(summary.assumedModelRecords, 1)
+  }
+  assert.equal(internals.priceRecord({ ...usage, model: '', time: 0 }), null)
 })
 test('v3 model source overrides stale header and final usage replaces chunks; uses step start', () => {
   const time = at('2026-09-14T11:59:59')

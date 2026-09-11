@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-cost-plus",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "DSH web GUI plugin: real-time current-session cost line under the stats strip (official DeepSeek pricing), plus cache-hit percentage with 2 decimals and no stats-line truncation",
   "type": "module",
   "main": "lib/index.js",

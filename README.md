@@ -1,73 +1,58 @@
 # dsh-session-cost-plus
 
-DSH（DeepSeek Harness）Web GUI 插件：在底部官方统计条（字符 / 缓存命中 / token 统计）下方增加**本次会话实时费用估算**，并把官方缓存命中显示改为**两位小数、不截断**。
-
-> **版本兼容：** v0.1.1 已适配 DeepSeek Harness 0.1.5-alpha.1，移除了新版已不存在的 dsh-client-runtime 依赖。
+DSH Web 会话费用估算 + 当前官方 DeepSeek API Key 所属账户余额。v0.2.0 适配 Harness 0.1.5-alpha.1。
 
 ## 功能
 
-- 费用行：`费用 ≈¥0.35 | 命中 ¥0.28 | 未命中 ¥0.02 | 输出 ¥0.05`
-- **逐条按时间计价**：host 端读取 `$DSH_HOME/sessions/<cwd>/<session-id>/session.jsonl.zstd`，按每条请求的 `time`、`model`、token 分桶分别计价，再汇总
-  - 能正确处理同一次会话跨过“峰谷前 → 峰谷后”或“空闲 → 高峰”的情况
-- 价格：DeepSeek 官方定价（https://api-docs.deepseek.com/zh-cn/quick_start/pricing）
-  - `deepseek-v4-flash` / `deepseek-v4-pro`：2026-08-17 前平峰价，之后峰谷价（高峰北京时间 9-12、14-18）
-  - 旧版 `deepseek-chat` / `deepseek-reasoner` 平峰价（兼容仍在使用旧模型的情况）
-  - 模型取每条请求日志里的模型；未识别时按 `deepseek-v4-flash` 兜底
-- 缓存命中显示两位小数：官方 `87%` → `87.35%`
-- 不截断：官方统计条和费用行都允许完整显示，不再用省略号 + 悬停 tooltip 才看全
-- **性能优化**：缓存已定位的会话日志路径并限制缓存容量；费用请求改为随 token 用量变化触发并可取消；DOM 修补合并到单帧，细节观察限定在输入区，并用轻量观察器处理输入区替换。
+- 输入框下显示会话费用及缓存命中、未命中、输出明细，保留到小数点后六位。
+- 优先读取新版 `session.v3.jsonl.zstd`，兼容旧版日志及串联 zstd 帧；读取实际消息来源中的模型，最终 usage 覆盖流中间值，有 usage 的失败/重试单独计算。
+- 每个 step 使用开始时间近似请求计费时间，跨峰谷分别计算；不把 reasoning tokens 重复加到输出。
+- 未识别模型显示未计价条数，不再默认当成 Flash。费用是官方参考价估算，不代表第三方服务实际账单。
+- 历史已知模型保留旧表估算，并明确显示历史价格未确认。官方当前页面没有给出旧 Flash 别名迁移的精确时刻；不能保证重建准确的历史账单。
+- 保留缓存命中两位小数、统计条不截断、DOM 帧合并和有界日志缓存。
+- 新增官方账户余额：总额、充值/赠送额、币种、账户可用状态、更新时间、刷新按钮；新会话尚无 token 也可看到。
+- 页面可见时每 30 秒刷新余额，服务端最多缓存 15 秒并合并并发请求；刷新失败明确标记旧数据，不假装实时成功。
 
-> 费用仍以 DeepSeek 官方账单为准；本插件按 provider 上报的 usage 记录估算。
+## 官方当前价格
 
-## 安装
+来源：[DeepSeek 官方价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)，核对于 2026-09-11 11:00:26（北京时间）。
 
-本目录就是一个可安装的插件包。根据你本机 `dsh plugin` 支持的本地路径格式，任选其一：
-
-```bash
-# 方式一：在当前目录内直接添加当前目录
-dsh plugin --profile web add .
-
-# 方式二：使用 link: 绝对路径
-dsh plugin --profile web add link:D:\\dsh花费查询
-
-# 方式三：把本目录改名/复制为 dsh-session-cost-plus，再到上一级执行
-# dsh plugin --profile web add ./dsh-session-cost-plus
-```
-
-如果 `dsh` 未全局安装，在命令前加 `npx --yes @deepseek-ai/dsh`：
-
-```bash
-npx --yes @deepseek-ai/dsh plugin --profile web add .
-```
-
-安装后**重启 `dsh web`** 生效。
-
-## 目录结构
-
-```
-dsh-session-cost-plus/
-├── package.json          # dsh.client manifest
-├── cordis.patch.yml      # 插件挂载补丁
-├── lib/
-│   ├── index.js          # host 面：解析 session.jsonl.zstd 并逐条计价 API
-│   └── client.js         # 浏览器面：费用行 + 统计条修补
-└── README.md
-```
-
-## 价格表
-
-| 模型 | 时段 | 命中（¥/M） | 未命中（¥/M） | 输出（¥/M） |
-| --- | --- | --- | --- | --- |
-| deepseek-v4-flash | 高峰 | 0.10 | 3.0 | 9.0 |
-| deepseek-v4-flash | 空闲 | 0.05 | 1.5 | 4.5 |
-| deepseek-v4-pro | 高峰 | 0.30 | 9.0 | 27.0 |
+| 模型 | 时段 | 缓存命中 ¥/百万 | 未命中 ¥/百万 | 输出 ¥/百万 |
+| --- | --- | ---: | ---: | ---: |
+| deepseek-flash（V4.1） | 高峰 | 0.04 | 2 | 8 |
+| deepseek-flash（V4.1） | 空闲 | 0.02 | 1 | 4 |
+| deepseek-v4-pro | 高峰 | 0.30 | 9 | 27 |
 | deepseek-v4-pro | 空闲 | 0.15 | 4.5 | 13.5 |
 
-计费口径：`(未命中 + 缓存写入) × miss + 缓存命中 × hit + 输出 × out`，除以 1e6 得到元。
+高峰是北京时间**周一至周五 09:00–12:00、14:00–18:00**，其余时间为空闲。
+旧名 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 当前按 Flash 价格。
+2026-09-14 12:00 起，按官方已公布安排，旧 Pro 名请求也按 Flash 价格计算。
+核对时刻之前的旧名称历史记录保留旧表并标示不确定；新名称 deepseek-flash 使用当前表。未来官方再次调价需更新插件，价格并非自动抓取。
 
-## 常见问题
+公式：`(inputTokens + cacheWriteTokens) × miss + cacheReadTokens × hit + outputTokens × out`，除以一百万。
+DSH 的 inputTokens 已经是缓存未命中部分，不再减一次缓存命中。
 
-- **看不到费用行？** 确认当前会话已有 token 用量（发过至少一次成功请求），且插件已随 `dsh web` 重启加载。若显示“费用计算中…”，说明 host 还没读到该会话日志，稍等下一次轮询即可。
-- **模型价格不对？** 本插件内置的是 DeepSeek 官方公开价；如果官方调价，编辑 `lib/index.js` 顶部的 `TIERED_PRICES` / `FLAT_PRICES` 后重启即可。
-- **依赖装不上？** host 端自带 vendored `fzstd`（纯 JS zstd 解压，已放在 `lib/vendor/fzstd.cjs`），不依赖 npm 网络；若手动放置目录也无需额外 `npm install`。
-- **想只显示总额？** 可删除 `CostLine` 中 `groups` 数组里的明细项后重新构建/复制 `lib/client.js`。
+## 余额与安全
+
+余额来自 [GET /user/balance](https://api-docs.deepseek.com/api/get-user-balance/)。
+读取 Harness 的 `llm-deepseek.apiKeyEnv` 及其凭据服务，不要求把密钥再输入一遍。
+凭据仅在服务端使用，不返回浏览器、不写入日志。只向固定的官方 HTTPS 地址查询，禁止重定向。
+如果 DeepSeek 适配器配置为第三方/内部地址，余额栏会说明不支持，不把该凭据发送到官方。
+这是该 Key 所属的**整个账户**余额，不是本会话剩余预算，也不是剩余 token 数。跨设备消费及官方记账延迟都会影响数值。
+没有官方 Key、凭据无效、网络失败、响应格式异常时均显示可见错误。
+
+## 安装与更新
+
+```sh
+dsh plugin --profile web add .
+# 或链接你的本地目录
+dsh plugin --profile web add link:D:\dsh花费查询
+```
+
+更新后重启 `dsh web` 并刷新浏览器。无需重新添加已链接的本地插件。
+开发测试：`npm test`。浏览器入口为 `lib/client.js`，价格表为 `lib/pricing.js`，余额接口为 `lib/balance.js`。
+
+## 准确性边界
+
+费用依赖日志中 provider 实际上报的 usage：无 usage 的中断/失败请求无法推算；一次请求内部的重试时间可能缺少精确边界。
+第三方渠道折扣、账户优惠和历史价格切换都可能让估算不同于账单。**实际扣费以官方账单和余额为准。**
